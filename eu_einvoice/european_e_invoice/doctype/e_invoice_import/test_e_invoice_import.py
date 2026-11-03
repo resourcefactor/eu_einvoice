@@ -162,6 +162,55 @@ class TestEInvoiceImport(FrappeTestCase):
 		self.assertIsNone(doc.payee_bic)
 
 
+E_INVOICE_IMPORT_MODULE = "eu_einvoice.european_e_invoice.doctype.e_invoice_import.e_invoice_import"
+
+
+class TestEInvoiceImportCompany(FrappeTestCase):
+	"""E-invoicing is enabled per company in EU Einvoice Settings."""
+
+	def guess_company(self, enabled_companies, default_company=None, **values):
+		einvoice_import = frappe.new_doc("E Invoice Import")
+		einvoice_import.company = None  # ignore the user's default company
+		einvoice_import.update(values)
+		with (
+			patch(f"{E_INVOICE_IMPORT_MODULE}.get_enabled_companies", return_value=enabled_companies),
+			patch(f"{E_INVOICE_IMPORT_MODULE}.get_default_company", return_value=default_company),
+		):
+			einvoice_import.guess_company()
+
+		return einvoice_import.company
+
+	def test_guess_company_by_buyer_name(self):
+		self.assertEqual(self.guess_company(["Company A", "Company B"], buyer_name="Company B"), "Company B")
+
+	def test_guess_company_ignores_disabled_companies(self):
+		self.assertIsNone(self.guess_company([], default_company="Company A", buyer_name="Company A"))
+		self.assertIsNone(
+			self.guess_company(["Company A", "Company B"], default_company="Company C", buyer_name="Other")
+		)
+
+	def test_guess_company_fallbacks(self):
+		self.assertEqual(self.guess_company(["Company A"], buyer_name="Other"), "Company A")
+		self.assertEqual(
+			self.guess_company(["Company A", "Company B"], default_company="Company B", buyer_name="Other"),
+			"Company B",
+		)
+
+	def test_company_must_be_enabled(self):
+		einvoice_import = frappe.new_doc("E Invoice Import")
+		einvoice_import.company = "Company A"
+		with patch(f"{E_INVOICE_IMPORT_MODULE}.is_einvoice_enabled", return_value=False):
+			self.assertRaises(frappe.ValidationError, einvoice_import.validate)
+
+	def test_default_company_without_einvoicing_is_dropped(self):
+		einvoice_import = frappe.new_doc("E Invoice Import")
+		einvoice_import.company = "Company A"
+		with patch(f"{E_INVOICE_IMPORT_MODULE}.is_einvoice_enabled", return_value=False):
+			einvoice_import.before_validate()
+
+		self.assertIsNone(einvoice_import.company)
+
+
 def make_item(item_code: str, supplier_items=None) -> str:
 	item = frappe.get_doc(
 		{

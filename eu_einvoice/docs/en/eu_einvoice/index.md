@@ -26,3 +26,4 @@ This app cannot read or write UBL invoices. It also does not provide a special w
 - [Sales Invoice](/app/docs/en/eu_einvoice/sales-invoice)
 - [Purchase Invoice](/app/docs/en/eu_einvoice/purchase-invoice)
 - [Custom logic](/app/docs/en/eu_einvoice/custom-logic)
+- [Reports and Dashboard](/app/docs/en/eu_einvoice/reports)

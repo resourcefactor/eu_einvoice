@@ -7,6 +7,7 @@ frappe.ui.form.on("E Invoice Import", {
 			return {
 				filters: {
 					is_group: 0,
+					name: ["in", eu_einvoice.utils.get_enabled_companies()],
 				},
 			};
 		});
@@ -56,6 +57,24 @@ frappe.ui.form.on("E Invoice Import", {
 				},
 			};
 		});
+	},
+	onload: function (frm) {
+		frm.trigger("drop_disabled_company");
+	},
+	company: function (frm) {
+		// The default company is set again after onload, once its link is validated
+		frm.trigger("drop_disabled_company");
+	},
+	drop_disabled_company: function (frm) {
+		// The user's default company might not use e-invoicing
+		if (
+			frm.is_new() &&
+			frm.doc.company &&
+			!eu_einvoice.utils.is_enabled_for(frm.doc.company)
+		) {
+			const enabled_companies = eu_einvoice.utils.get_enabled_companies();
+			frm.set_value("company", enabled_companies.length === 1 ? enabled_companies[0] : "");
+		}
 	},
 	refresh: function (frm) {
 		const attach_field = frm.fields_dict["einvoice"];

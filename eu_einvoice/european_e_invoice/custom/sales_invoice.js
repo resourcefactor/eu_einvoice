@@ -1,5 +1,9 @@
 frappe.ui.form.on("Sales Invoice", {
 	refresh: function (frm) {
+		if (!eu_einvoice.utils.is_enabled_for(frm.doc.company)) {
+			return;
+		}
+
 		frm.trigger("add_einvoice_button");
 
 		if (!frm.is_dirty() && !frm.doc.einvoice_is_correct && frm.doc.einvoice_profile) {
@@ -21,5 +25,11 @@ frappe.ui.form.on("Sales Invoice", {
 				"_blank"
 			);
 		});
+
+		if (frm.doc.docstatus === 1 && frm.perm[0]?.write) {
+			frm.page.add_menu_item(__("Attach eInvoice XML"), () => {
+				eu_einvoice.utils.attach_xml([frm.doc.name], () => frm.reload_doc());
+			});
+		}
 	},
 });

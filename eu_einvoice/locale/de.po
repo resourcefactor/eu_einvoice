@@ -284,6 +284,11 @@ msgstr "E-Rechnungs-Profil"
 msgid "E Invoice Settings"
 msgstr "E-Rechnungs-Einstellungen"
 
+#: eu_einvoice/european_e_invoice/doctype/eu_einvoice_settings/eu_einvoice_settings.json
+#: eu_einvoice/european_e_invoice/workspace/e_invoicing/e_invoicing.json
+msgid "EU Einvoice Settings"
+msgstr "EU-E-Rechnungs-Einstellungen"
+
 #. Name of a DocType
 #: eu_einvoice/european_e_invoice/doctype/e_invoice_trade_tax/e_invoice_trade_tax.json
 msgid "E Invoice Trade Tax"

@@ -51,14 +51,24 @@ Then map a **Common Code** from **Code List** "UNTDID.4461", for example "Credit
 
 The eInvoice standard only supports one payment means per invoice, so do not specify multiple **Modes of Payment** in the same invoice.
 
-## E Invoice Settings
+## EU Einvoice Settings
 
-eInvoice validation can be time-consuming. Use **E Invoice Settings** to configure when validation occurs and how errors are handled:
+E-invoicing is configured per company. Add a row for every company that uses e-invoicing to the _Company Settings_ table in **EU Einvoice Settings**. Companies that are not listed (or not enabled) are not affected at all: their Sales Invoices are not validated, get no XML attached, their PDFs stay unchanged and the e-invoicing fields are hidden. E Invoice Imports can only be created for enabled companies.
 
-- **Validate Sales Invoice on Save/Submit**: Enable or disable validation at these stages.
+Per company, you can configure:
+
+- **Enabled**: Turn e-invoicing on or off for the company.
+- **Default Profile**: The _E Invoice Profile_ to use when the **Customer** has none.
+- **Auto-attach XML on Submit**: Attach the generated XML to the **Sales Invoice** (field _E Invoice XML File_) when it is submitted. The XML is attached even if it does not pass the validation.
+- **Validate on Save/Submit**: eInvoice validation can be time-consuming. Enable or disable validation at these stages.
 - **Action on Validation Error**: Choose how to handle validation errors:
   - *Empty* (default): No action taken
   - *Warning Message*: Show errors but allow save/submit
   - *Error Message*: Block save/submit and show errors
+- **Sales Invoice Number Field**: If you use a separate field for the sales invoice number, configure the field name here.
+- **Auto Name Format for XML File**: Pattern for the file name of the downloaded and attached XML, for example `EXAMPLE-.MM.-.{po_no}.-.YYYY`. Leave it empty to use the Sales Invoice ID.
+- **Default VAT exemption reason**: Text for BT-120 on VAT breakdowns that carry an exemption reason code.
 
-If you use a separate field for the sales invoice number, configure the field name in **E Invoice Settings** -> **Sales Invoice Number**.
+Use the **Import Code Lists** button to import the bundled EN 16931 code lists.
+
+To attach the XML to Sales Invoices that were submitted earlier, use "..." > "Attach eInvoice XML" in the **Sales Invoice**, or select the invoices in the list view and use _Actions_ > "Attach eInvoice XML". An existing XML file is replaced.

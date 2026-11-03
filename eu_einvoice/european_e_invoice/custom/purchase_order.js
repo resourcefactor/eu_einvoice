@@ -1,6 +1,6 @@
 frappe.ui.form.on("Purchase Order", {
 	refresh: function (frm) {
-		if (frm.doc.docstatus === 1) {
+		if (frm.doc.docstatus === 1 && eu_einvoice.utils.is_enabled_for(frm.doc.company)) {
 			frm.add_custom_button(
 				__("E Invoice Import"),
 				function () {

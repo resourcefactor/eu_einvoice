@@ -22,6 +22,7 @@ from frappe.utils import cstr
 from frappe.utils.data import cint, date_diff, flt, getdate, to_markdown
 
 from eu_einvoice.common_codes import CommonCodeRetriever
+from eu_einvoice.company_settings import get_company_settings, is_einvoice_enabled
 from eu_einvoice.schematron import get_validation_errors
 from eu_einvoice.switzerland import is_valid_swiss_vat_id, normalize_swiss_vat_id
 from eu_einvoice.utils import EInvoiceProfile, get_drafthorse_schema, get_guideline
@@ -35,7 +36,9 @@ if TYPE_CHECKING:
 	from frappe.contacts.doctype.contact.contact import Contact
 	from frappe.model.document import Document as FrappeDocument
 
-	from eu_einvoice.european_e_invoice.doctype.e_invoice_settings.e_invoice_settings import EInvoiceSettings
+	from eu_einvoice.european_e_invoice.doctype.e_invoice_company_settings.e_invoice_company_settings import (
+		EInvoiceCompanySettings,
+	)
 
 uom_codes = CommonCodeRetriever(
 	[
@@ -57,10 +60,16 @@ vat_exemption_reason_codes = CommonCodeRetriever(
 # VAT categories that need an exemption reason on the VAT breakdown (BR-AE-10, BR-E-10, ...)
 EXEMPT_VAT_CATEGORIES = ("AE", "E", "G", "K", "O")
 
+XML_FILE_FIELD = "einvoice_xml_file"
+
 
 @frappe.whitelist()
 def download_xrechnung(invoice_id: str):
 	invoice = frappe.get_doc("Sales Invoice", invoice_id)
+	invoice.check_permission("read")
+	if not is_einvoice_enabled(invoice.company):
+		frappe.throw(_("E-invoicing is not enabled for company {0}.").format(frappe.bold(invoice.company)))
+
 	base_name = get_xml_attachment_file_base_name(invoice)
 	frappe.local.response.filecontent = get_einvoice(invoice)
 	frappe.local.response.filename = f"{base_name}.xml"
@@ -155,8 +164,9 @@ class EInvoiceGenerator:
 	def create_einvoice(self):
 		"""Create the einvoice document as a Python object."""
 		self.doc = Document()
-		self.vat_exemption_reason_text = str(
-			frappe.db.get_single_value("E Invoice Settings", "vat_exemption_reason_text") or ""
+		company_settings = get_company_settings(self.invoice.company)
+		self.vat_exemption_reason_text = cstr(
+			company_settings.vat_exemption_reason_text if company_settings else ""
 		).strip()
 
 		self._set_context()
@@ -235,9 +245,8 @@ class EInvoiceGenerator:
 		self.doc.context.guideline_parameter.id = get_guideline(self.profile)
 
 	def _set_header(self):
-		sales_invoice_number_field = frappe.db.get_single_value(
-			"E Invoice Settings", "sales_invoice_number_field"
-		)
+		company_settings = get_company_settings(self.invoice.company)
+		sales_invoice_number_field = company_settings.sales_invoice_number_field if company_settings else None
 
 		if sales_invoice_number_field and (invoice_number := self.invoice.get(sales_invoice_number_field)):
 			self.doc.header.id = invoice_number
@@ -806,6 +815,19 @@ def validate_vat_id(vat_id: str) -> str:
 
 def validate_doc(doc, event):
 	"""Validate the Sales Invoice form."""
+	settings = get_company_settings(doc.company)
+	if not settings:
+		# E-invoicing is not used by this company. Don't keep a profile fetched from the Customer.
+		clear_einvoice_fields(doc)
+		return
+
+	if not doc.einvoice_profile and settings.default_profile:
+		doc.einvoice_profile = settings.default_profile
+
+	if not doc.einvoice_profile:
+		clear_einvoice_fields(doc)
+		return
+
 	for tax_row in doc.taxes:
 		if tax_row.charge_type == "On Item Quantity":
 			frappe.msgprint(
@@ -858,8 +880,6 @@ def validate_doc(doc, event):
 			indicator="orange",
 		)
 
-	settings: EInvoiceSettings = frappe.get_single("E Invoice Settings")
-
 	if settings.should_validate(doc.docstatus):
 		validate_einvoice(doc)
 
@@ -869,6 +889,13 @@ def validate_doc(doc, event):
 				title=_("E Invoice is not correct"),
 				raise_exception=settings.should_raise_exception(doc.docstatus),
 			)
+
+
+def clear_einvoice_fields(doc: SalesInvoice):
+	doc.einvoice_profile = ""
+	doc.einvoice_is_correct = 0
+	doc.validation_errors = ""
+	doc.validation_warnings = ""
 
 
 def validate_einvoice(doc: SalesInvoice):
@@ -914,17 +941,16 @@ def validate_einvoice(doc: SalesInvoice):
 
 def attach_xml_on_submit(doc: SalesInvoice, event: str):
 	"""
-	Attach XML file to Sales Invoice on submit if auto-attach is enabled.
+	Attach the e-invoice XML to the Sales Invoice on submit, if auto-attach is enabled for its company.
 
-	This function is called via doc_events hook when a Sales Invoice is submitted.
-	It checks E Invoice Settings and attaches the XRECHNUNG XML to the specified field
-	or as a general attachment if no field is specified.
+	The XML is attached even if it does not pass the schematron validation, so that the
+	document that was actually generated is kept with the invoice.
 	"""
-	if not doc.einvoice_profile or doc.einvoice_profile != "XRECHNUNG":
+	if not doc.einvoice_profile:
 		return
 
-	settings = frappe.get_cached_doc("E Invoice Settings")
-	if not settings.auto_attach_xml:
+	settings = get_company_settings(doc.company)
+	if not settings or not settings.auto_attach_xml:
 		return
 
 	try:
@@ -934,66 +960,111 @@ def attach_xml_on_submit(doc: SalesInvoice, event: str):
 		# Don't raise exception - allow submit to continue even if attachment fails
 		return
 
-	# Pass None if no field is specified to create general attachment
-	field_name = settings.attach_field_for_xml_file or None
 	try:
-		_attach_xml_file(doc, xml_content, field_name)
+		_attach_xml_file(doc, xml_content)
 	except Exception:
 		doc.log_error("E Invoice Auto-Attach File Creation Failed")
 		# Don't raise exception - allow submit to continue
 		return
 
 
-def _attach_xml_file(doc: SalesInvoice, xml_content: bytes, field_name: str | None):
+@frappe.whitelist()
+def attach_einvoice_xml(invoice_names: str | list[str]) -> dict | None:
+	"""Create the e-invoice XML for submitted Sales Invoices and attach it, replacing an existing one."""
+	if isinstance(invoice_names, str):
+		invoice_names = frappe.parse_json(invoice_names)
+
+	if len(invoice_names) > 20:
+		# Avoid request timeouts for large selections
+		frappe.enqueue(
+			_attach_einvoice_xml_files, invoice_names=invoice_names, notify=True, queue="long", timeout=3600
+		)
+		return None
+
+	return _attach_einvoice_xml_files(invoice_names)
+
+
+def _attach_einvoice_xml_files(invoice_names: list[str], notify: bool = False) -> dict:
+	attached = []
+	skipped = {}
+	for invoice_name in invoice_names:
+		doc = frappe.get_doc("Sales Invoice", invoice_name)
+		doc.check_permission("write")
+
+		if doc.docstatus != 1:
+			skipped[invoice_name] = _("Sales Invoice is not submitted")
+		elif not is_einvoice_enabled(doc.company):
+			skipped[invoice_name] = _("E-invoicing is not enabled for company {0}").format(doc.company)
+		elif not doc.einvoice_profile:
+			skipped[invoice_name] = _("No E Invoice Profile is set")
+		else:
+			try:
+				_attach_xml_file(doc, get_einvoice(doc), replace=True)
+				attached.append(invoice_name)
+			except Exception:
+				doc.log_error("E Invoice XML Attachment Failed")
+				skipped[invoice_name] = _("The e-invoice XML could not be created")
+
+	result = {"attached": attached, "skipped": skipped}
+	if notify:
+		frappe.publish_realtime("msgprint", get_attach_summary(result), user=frappe.session.user)
+
+	return result
+
+
+def get_attach_summary(result: dict) -> str:
+	message = _("E-invoice XML attached to {0} Sales Invoice(s).").format(len(result["attached"]))
+	if result["skipped"]:
+		message += "<br><br>" + _("Skipped:") + "<ul>"
+		message += "".join(
+			f"<li>{frappe.utils.escape_html(name)}: {frappe.utils.escape_html(reason)}</li>"
+			for name, reason in result["skipped"].items()
+		)
+		message += "</ul>"
+
+	return message
+
+
+def _attach_xml_file(doc: SalesInvoice, xml_content: bytes, replace: bool = False) -> str | None:
 	"""
-	Create File document and attach XML to specified field or as general attachment.
+	Save the XML as a private File attached to the Sales Invoice and link it in `einvoice_xml_file`.
 
 	Args:
 	    doc: Sales Invoice document
 	    xml_content: XML file content as bytes
-	    field_name: Target attachment field name (None for general attachment)
+	    replace: Replace an XML file that is already attached
 	"""
 	if not xml_content:
 		doc.log_error("E Invoice Auto-Attach: Empty XML content")
-		return
+		return None
 
-	if field_name:
-		if not hasattr(doc, field_name):
-			doc.log_error(
-				title="E Invoice Auto-Attach: invalid field",
-				message=f"Field '{field_name}' is configured for XML attachment, but does not exist on the document.",
-			)
-			return
+	if doc.get(XML_FILE_FIELD):
+		if not replace:
+			return doc.get(XML_FILE_FIELD)
 
-		if doc.get(field_name):
-			doc.log_error(
-				title="E Invoice Auto-Attach: conflicting value",
-				message=f"Field '{field_name}' is configured for XML attachment, but already has a value.",
-			)
-			return
+		for file_name in frappe.get_all(
+			"File",
+			filters={
+				"attached_to_doctype": doc.doctype,
+				"attached_to_name": doc.name,
+				"attached_to_field": XML_FILE_FIELD,
+			},
+			pluck="name",
+		):
+			frappe.delete_doc("File", file_name, ignore_permissions=True)
 
-	base_name = get_xml_attachment_file_base_name(doc)
-	file_name = f"{base_name}.xml"
-
-	# Create new File document
 	file_doc = frappe.new_doc("File")
-	file_doc.file_name = file_name
+	file_doc.file_name = f"{get_xml_attachment_file_base_name(doc)}.xml"
 	file_doc.content = xml_content
 	file_doc.folder = "Home/Attachments"
 	file_doc.is_private = 1
 	file_doc.attached_to_doctype = doc.doctype
 	file_doc.attached_to_name = doc.name
-
-	# Only set attached_to_field if field is specified
-	if field_name:
-		file_doc.attached_to_field = field_name
-
-	# Save file
+	file_doc.attached_to_field = XML_FILE_FIELD
 	file_doc.save(ignore_permissions=True)
 
-	# Update field value on Sales Invoice only if field is specified
-	if field_name:
-		doc.db_set(field_name, file_doc.file_url)
+	doc.db_set(XML_FILE_FIELD, file_doc.file_url)
+	return file_doc.file_url
 
 
 def get_item_rate(item_tax_template: str | None, taxes: list) -> float | None:
@@ -1207,13 +1278,18 @@ def attach_xml_to_pdf(invoice_id: str, pdf_data: bytes) -> bytes:
 	"""
 	from drafthorse.pdf import attach_xml
 
+	invoice = frappe.db.get_value("Sales Invoice", invoice_id, ["company", "einvoice_profile"], as_dict=True)
+	if not invoice or not is_einvoice_enabled(invoice.company):
+		# Leave the PDFs of companies that don't use e-invoicing untouched
+		return pdf_data
+
 	if _is_ghostscript_installed():
 		try:
 			pdf_data = _convert_pdf_to_pdfa(pdf_data)
 		except RuntimeError:
 			frappe.log_error("Error converting PDF to PDF/A-3 using Ghostscript.")
 
-	level = frappe.db.get_value("Sales Invoice", invoice_id, "einvoice_profile")
+	level = invoice.einvoice_profile
 	if not level or level == "XRECHNUNG":
 		# XRECHNUNG does not support embedding into PDF
 		return pdf_data
@@ -1226,12 +1302,13 @@ def get_xml_attachment_file_base_name(doc, *, pattern: str | None = None) -> str
 	"""Filename stem (no `.xml`) for the downloadable XML.
 
 	Uses *pattern* when given, otherwise reads *Auto name format for XML file*
-	from **E Invoice Settings**. Falls back to `doc.name` when the pattern is
-	empty or fails to resolve. Result is sanitized via `_get_safe_file_name`
-	(same rules as **File** attachments).
+	of the invoice's company from **EU Einvoice Settings**. Falls back to `doc.name`
+	when the pattern is empty or fails to resolve. Result is sanitized via
+	`_get_safe_file_name` (same rules as **File** attachments).
 	"""
 	if pattern is None:
-		pattern = frappe.get_single_value("E Invoice Settings", "auto_name_format_for_xml_file")
+		company_settings = get_company_settings(doc.get("company"))
+		pattern = company_settings.auto_name_format_for_xml_file if company_settings else None
 	pattern = cstr(pattern).strip()
 	if pattern:
 		try:

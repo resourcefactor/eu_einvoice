@@ -12,6 +12,9 @@ def get_custom_fields():
 		]
 	)
 
+	# Hide e-invoicing fields on transactions of companies that don't use e-invoicing
+	ENABLED_FOR_COMPANY = "eval:!window.eu_einvoice || eu_einvoice.utils.is_enabled_for(doc.company)"
+
 	return {
 		"Purchase Invoice": [
 			{
@@ -134,6 +137,7 @@ def get_custom_fields():
 				"fieldtype": "Data",
 				"fetch_from": "customer.buyer_reference",
 				"fetch_if_empty": 1,
+				"depends_on": ENABLED_FOR_COMPANY,
 			},
 		],
 		"Sales Invoice": [
@@ -144,12 +148,14 @@ def get_custom_fields():
 				"fieldtype": "Data",
 				"fetch_from": "customer.buyer_reference",
 				"fetch_if_empty": 1,
+				"depends_on": ENABLED_FOR_COMPANY,
 			},
 			{
 				"fieldname": "einvoice_tab",
 				"label": _("E Invoicing"),
 				"insert_after": "terms",
 				"fieldtype": "Tab Break",
+				"depends_on": ENABLED_FOR_COMPANY,
 			},
 			{
 				"fieldname": "e_invoice_validation_section",
@@ -175,6 +181,16 @@ def get_custom_fields():
 				"fieldtype": "Attach",
 				"depends_on": "einvoice_profile",
 				"description": _("Additional supporting document to be embedded in the e-invoice file."),
+			},
+			{
+				"fieldname": "einvoice_xml_file",
+				"label": _("E Invoice XML File"),
+				"insert_after": "einvoice_embedded_document",
+				"fieldtype": "Attach",
+				"read_only": 1,
+				"no_copy": 1,
+				"print_hide": 1,
+				"depends_on": "eval:doc.einvoice_xml_file",
 			},
 			{
 				"fieldname": "einvoice_is_correct",

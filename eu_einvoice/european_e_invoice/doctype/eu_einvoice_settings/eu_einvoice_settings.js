@@ -1,10 +1,19 @@
 // Copyright (c) 2025, ALYF GmbH and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("E Invoice Settings", {
+frappe.ui.form.on("EU Einvoice Settings", {
+	setup(frm) {
+		frm.set_query("company", "company_settings", function () {
+			return {
+				filters: {
+					is_group: 0,
+				},
+			};
+		});
+	},
+
 	refresh(frm) {
 		frm.trigger("set_invoice_number_field_options");
-		frm.trigger("set_auto_attach_options");
 		frm.add_custom_button(__("Import Code Lists"), () => frm.trigger("import_code_lists"));
 	},
 
@@ -16,15 +25,20 @@ frappe.ui.form.on("E Invoice Settings", {
 		});
 	},
 
-	async set_auto_attach_options(frm) {
-		const options = await get_autocomplete_options("Sales Invoice", ["Attach"]);
-		const filtered = options.filter((option) => option.value !== "einvoice_embedded_document");
-		frm.fields_dict.attach_field_for_xml_file.set_data(filtered);
-	},
-
 	async set_invoice_number_field_options(frm) {
 		const options = await get_autocomplete_options("Sales Invoice", ["Data", "Read Only"]);
-		frm.fields_dict.sales_invoice_number_field.set_data(options);
+		frm.fields_dict.company_settings.grid.update_docfield_property(
+			"sales_invoice_number_field",
+			"options",
+			options
+		);
+	},
+});
+
+frappe.ui.form.on("E Invoice Company Settings", {
+	company_settings_add(frm, cdt, cdn) {
+		// Enabling e-invoicing should be a conscious choice, don't prefill the user's default company
+		frappe.model.set_value(cdt, cdn, "company", "");
 	},
 });
 

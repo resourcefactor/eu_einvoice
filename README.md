@@ -15,6 +15,7 @@ You can also read the Markdown files in this repository:
 - [Sales Invoice](eu_einvoice/docs/en/eu_einvoice/sales-invoice.md)
 - [Purchase Invoice](eu_einvoice/docs/en/eu_einvoice/purchase-invoice.md)
 - [Custom logic](eu_einvoice/docs/en/eu_einvoice/custom-logic.md)
+- [Reports and Dashboard](eu_einvoice/docs/en/eu_einvoice/reports.md)
 
 ## Installation
 

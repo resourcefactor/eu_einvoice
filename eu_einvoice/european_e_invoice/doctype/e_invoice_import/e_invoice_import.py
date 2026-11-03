@@ -14,8 +14,10 @@ from facturx import get_xml_from_pdf
 from frappe import _, _dict, get_site_path
 from frappe.model.document import Document
 from frappe.model.mapper import get_mapped_doc
+from frappe.utils import get_link_to_form
 from lxml.etree import QName, XMLSyntaxError, fromstring
 
+from eu_einvoice.company_settings import get_enabled_companies, is_einvoice_enabled
 from eu_einvoice.schematron import get_validation_errors
 from eu_einvoice.utils import EInvoiceProfile, get_profile
 
@@ -95,7 +97,20 @@ class EInvoiceImport(Document):
 		validation_warnings: DF.Text | None
 	# end: auto-generated types
 
+	def before_validate(self):
+		if self.is_new() and self.company and not is_einvoice_enabled(self.company):
+			# Most likely the user's default company. Let `guess_company` find the buyer instead.
+			self.company = None
+
 	def validate(self):
+		if self.company and not is_einvoice_enabled(self.company):
+			frappe.throw(
+				_("E-invoicing is not enabled for company {0}. Please enable it in {1}.").format(
+					frappe.bold(self.company),
+					get_link_to_form("EU Einvoice Settings", "EU Einvoice Settings"),
+				)
+			)
+
 		if (
 			self.id
 			and self.supplier
@@ -377,12 +392,29 @@ class EInvoiceImport(Document):
 			self.supplier = frappe.db.get_value("Supplier", {"tax_id": self.seller_tax_id}, "name")
 
 	def guess_company(self):
+		"""Find the buyer among the companies that have e-invoicing enabled."""
 		if self.company:
 			return
 
-		if frappe.db.exists("Company", self.buyer_name):
+		enabled_companies = get_enabled_companies()
+		if not enabled_companies:
+			return
+
+		if self.buyer_name in enabled_companies:
 			self.company = self.buyer_name
-		else:
+			return
+
+		if self.buyer_electronic_address:
+			self.company = frappe.db.get_value(
+				"Company",
+				{"name": ("in", enabled_companies), "electronic_address": self.buyer_electronic_address},
+			)
+			if self.company:
+				return
+
+		if len(enabled_companies) == 1:
+			self.company = enabled_companies[0]
+		elif get_default_company() in enabled_companies:
 			self.company = get_default_company()
 
 	def guess_uom(self):
@@ -665,6 +697,10 @@ def create_item(source_name, target_doc=None):
 
 @frappe.whitelist()
 def create_einvoice_from_po(source_name, target_doc=None):
+	company = frappe.db.get_value("Purchase Order", source_name, "company")
+	if not is_einvoice_enabled(company):
+		frappe.throw(_("E-invoicing is not enabled for company {0}.").format(frappe.bold(company)))
+
 	return get_mapped_doc(
 		"Purchase Order",
 		source_name,

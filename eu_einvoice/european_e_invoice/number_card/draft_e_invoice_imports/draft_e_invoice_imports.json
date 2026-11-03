@@ -1,0 +1,21 @@
+{
+ "creation": "2026-11-03 12:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Number Card",
+ "document_type": "E Invoice Import",
+ "dynamic_filters_json": "[]",
+ "filters_json": "[[\"E Invoice Import\", \"docstatus\", \"=\", 0, false]]",
+ "function": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "label": "Draft E Invoice Imports",
+ "modified": "2026-11-03 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "European e-Invoice",
+ "name": "Draft E Invoice Imports",
+ "owner": "Administrator",
+ "show_percentage_stats": 0,
+ "stats_time_interval": "Daily",
+ "type": "Document Type"
+}

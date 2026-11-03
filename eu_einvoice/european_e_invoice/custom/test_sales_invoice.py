@@ -173,6 +173,23 @@ class TestNotSubjectToVatInvoice(FrappeTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		# E-invoicing is enabled per company (EU Einvoice Settings). Without it, the
+		# E Invoice Profile would be removed from the test invoices on save.
+		company_settings = patch(
+			"eu_einvoice.european_e_invoice.custom.sales_invoice.get_company_settings",
+			return_value=frappe.get_doc(
+				{
+					"doctype": "E Invoice Company Settings",
+					"company": "_Test Company",
+					"enabled": 1,
+					"validate_on_save": 1,
+					"validate_on_submit": 1,
+				}
+			),
+		)
+		company_settings.start()
+		cls.addClassCleanup(company_settings.stop)
+
 		tax_category = frappe.get_doc(doctype="Tax Category", title="_Test Not Subject to VAT").insert()
 		cls.tax_category = tax_category.name
 		item_tax_template = frappe.get_doc(
@@ -345,18 +362,23 @@ class TestApplicableTradeTaxes(FrappeTestCase):
 
 class TestXmlAttachmentNaming(FrappeTestCase):
 	def test_auto_name_format_from_e_invoice_settings(self):
-		doc = frappe._dict(name="SINV-00001", po_no="PO-42", doctype="Sales Invoice")
-		field = "auto_name_format_for_xml_file"
-		pattern = "XMLSTEM.-.{po_no}"
-		real_gsv = frappe.get_single_value
+		doc = frappe._dict(name="SINV-00001", po_no="PO-42", doctype="Sales Invoice", company="Company A")
+		company_settings = frappe._dict(auto_name_format_for_xml_file="XMLSTEM.-.{po_no}")
 
-		def get_single_value(doctype, fname, cache=True):
-			if doctype == "E Invoice Settings" and fname == field:
-				return pattern
-			return real_gsv(doctype, fname, cache=cache)
-
-		with patch.object(frappe, "get_single_value", side_effect=get_single_value):
+		with patch(
+			"eu_einvoice.european_e_invoice.custom.sales_invoice.get_company_settings",
+			return_value=company_settings,
+		) as get_company_settings:
 			self.assertEqual(get_xml_attachment_file_base_name(doc), "XMLSTEM-PO-42")
+
+		get_company_settings.assert_called_once_with("Company A")
+
+	def test_company_without_einvoicing_uses_doc_name(self):
+		doc = frappe._dict(name="SINV-00001", doctype="Sales Invoice", company="Company B")
+		with patch(
+			"eu_einvoice.european_e_invoice.custom.sales_invoice.get_company_settings", return_value=None
+		):
+			self.assertEqual(get_xml_attachment_file_base_name(doc), "SINV-00001")
 
 	def test_empty_or_whitespace_uses_doc_name(self):
 		doc = frappe._dict(name="SINV/00001", doctype="Sales Invoice")

@@ -1,0 +1,21 @@
+{
+ "creation": "2026-11-03 12:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Number Card",
+ "document_type": "Sales Invoice",
+ "dynamic_filters_json": "[]",
+ "filters_json": "[[\"Sales Invoice\", \"docstatus\", \"<\", 2, false], [\"Sales Invoice\", \"einvoice_profile\", \"is\", \"set\", false], [\"Sales Invoice\", \"einvoice_is_correct\", \"=\", 0, false], [\"Sales Invoice\", \"validation_errors\", \"is\", \"set\", false]]",
+ "function": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "label": "Invalid E-Invoices",
+ "modified": "2026-11-03 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "European e-Invoice",
+ "name": "Invalid E-Invoices",
+ "owner": "Administrator",
+ "show_percentage_stats": 0,
+ "stats_time_interval": "Daily",
+ "type": "Document Type"
+}

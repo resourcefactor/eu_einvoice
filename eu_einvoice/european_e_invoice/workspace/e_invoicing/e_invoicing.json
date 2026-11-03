@@ -1,6 +1,19 @@
 {
- "charts": [],
- "content": "[{\"id\":\"7omeqgcKJn\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New E Invoice Import\",\"col\":4}},{\"id\":\"6xZPLmX5jr\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Sales Invoice\",\"col\":4}},{\"id\":\"fcxw8heUSI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Documentation\",\"col\":4}},{\"id\":\"R90qJHG-fp\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"YQxqOYQ_kG\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup\",\"col\":4}}]",
+ "charts": [
+  {
+   "chart_name": "E-Invoice Status",
+   "label": "E-Invoice Status"
+  },
+  {
+   "chart_name": "E-Invoices by Company",
+   "label": "E-Invoices by Company"
+  },
+  {
+   "chart_name": "Monthly E-Invoices",
+   "label": "Monthly E-Invoices"
+  }
+ ],
+ "content": "[{\"id\": \"eiHdrOverv\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Overview</b></span>\", \"col\": 12}}, {\"id\": \"eiCard0\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"E-Invoices This Month\", \"col\": 3}}, {\"id\": \"eiCard1\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Invalid E-Invoices\", \"col\": 3}}, {\"id\": \"eiCard2\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Submitted E-Invoices Without XML\", \"col\": 3}}, {\"id\": \"eiCard3\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Draft E Invoice Imports\", \"col\": 3}}, {\"id\": \"eiChart0\", \"type\": \"chart\", \"data\": {\"chart_name\": \"E-Invoice Status\", \"col\": 12}}, {\"id\": \"eiChart1\", \"type\": \"chart\", \"data\": {\"chart_name\": \"E-Invoices by Company\", \"col\": 6}}, {\"id\": \"eiChart2\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Monthly E-Invoices\", \"col\": 6}}, {\"id\": \"eiSpacer1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"eiHdrShort\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Your Shortcuts</b></span>\", \"col\": 12}}, {\"id\": \"7omeqgcKJn\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"New E Invoice Import\", \"col\": 3}}, {\"id\": \"6xZPLmX5jr\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"New Sales Invoice\", \"col\": 3}}, {\"id\": \"eiShortRep\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"E Invoice Status\", \"col\": 3}}, {\"id\": \"fcxw8heUSI\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Documentation\", \"col\": 3}}, {\"id\": \"R90qJHG-fp\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"eiCardRepo\", \"type\": \"card\", \"data\": {\"card_name\": \"Reports\", \"col\": 4}}, {\"id\": \"YQxqOYQ_kG\", \"type\": \"card\", \"data\": {\"card_name\": \"Setup\", \"col\": 4}}]",
  "creation": "2024-09-29 17:58:44.619269",
  "custom_blocks": [],
  "docstatus": 0,
@@ -46,19 +59,67 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "E Invoice Settings",
+   "label": "EU Einvoice Settings",
    "link_count": 0,
-   "link_to": "E Invoice Settings",
+   "link_to": "EU Einvoice Settings",
    "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 2,
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "E Invoice Status",
+   "link_count": 0,
+   "link_to": "E Invoice Status",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "E Invoice Import Register",
+   "link_count": 0,
+   "link_to": "E Invoice Import Register",
+   "link_type": "Report",
    "onboard": 0,
    "type": "Link"
   }
  ],
- "modified": "2025-09-18 19:30:29.015365",
+ "modified": "2026-11-03 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "European e-Invoice",
  "name": "E-Invoicing",
- "number_cards": [],
+ "number_cards": [
+  {
+   "label": "E-Invoices This Month",
+   "number_card_name": "E-Invoices This Month"
+  },
+  {
+   "label": "Invalid E-Invoices",
+   "number_card_name": "Invalid E-Invoices"
+  },
+  {
+   "label": "Submitted E-Invoices Without XML",
+   "number_card_name": "Submitted E-Invoices Without XML"
+  },
+  {
+   "label": "Draft E Invoice Imports",
+   "number_card_name": "Draft E Invoice Imports"
+  }
+ ],
  "owner": "Administrator",
  "parent_page": "",
  "public": 1,
@@ -88,6 +149,14 @@
    "link_to": "Sales Invoice",
    "stats_filter": "[]",
    "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "E Invoice Status",
+   "link_to": "E Invoice Status",
+   "stats_filter": "[]",
+   "type": "Report"
   }
  ],
  "title": "E-Invoicing",

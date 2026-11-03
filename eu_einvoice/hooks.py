@@ -50,7 +50,9 @@ doctype_js = {
 	"Customer": "european_e_invoice/custom/customer.js",
 	"Supplier": "european_e_invoice/custom/supplier.js",
 }
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
+doctype_list_js = {
+	"Sales Invoice": "european_e_invoice/custom/sales_invoice_list.js",
+}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -85,6 +87,11 @@ jinja = {
 		"eu_einvoice.jinja.get_einvoice_logo",
 	],
 }
+
+# Boot
+# ----------
+
+extend_bootinfo = "eu_einvoice.company_settings.extend_bootinfo"
 
 # Installation
 # ------------
